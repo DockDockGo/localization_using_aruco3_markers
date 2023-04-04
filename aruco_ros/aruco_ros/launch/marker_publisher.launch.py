@@ -30,7 +30,7 @@ def launch_setup(context, *args, **kwargs):
 def generate_launch_description():
 
     marker_size_arg = DeclareLaunchArgument(
-        'marker_size', default_value='0.05',
+        'marker_size', default_value='0.165',
         description='Marker size in m. '
     )
 
@@ -56,3 +56,4 @@ def generate_launch_description():
     ld.add_action(OpaqueFunction(function=launch_setup))
 
     return ld
+ 
