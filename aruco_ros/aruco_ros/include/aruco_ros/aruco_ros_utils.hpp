@@ -36,9 +36,9 @@ std::vector<aruco::Marker> detectMarkers(
   aruco::MarkerDetector * detector = nullptr,
   bool normalize_ilumination = false, bool correct_fisheye = false);
 
-visualization_msgs::msg::Marker visMarkerFromPose(
-  const geometry_msgs::msg::PoseStamped & pose,
-  double marker_size, int marker_id = 1);
+// visualization_msgs::msg::Marker visMarkerFromPose(
+//   const geometry_msgs::msg::PoseStamped & pose,
+//   double marker_size, int marker_id = 1);
 
 }  // namespace aruco_ros
 
