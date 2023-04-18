@@ -1,11 +1,15 @@
 import sys
+import time
+
+import numpy as np
+import pyqtgraph as pg
 import rclpy
+from PyQt5.QtWidgets import QApplication, QLabel, QLineEdit, QMainWindow, QVBoxLayout, QWidget
+from PyQt5.QtGui import QDoubleValidator
+
+
 from rclpy.node import Node
 from tf2_msgs.msg import TFMessage
-from PyQt5.QtWidgets import QApplication, QMainWindow
-import pyqtgraph as pg
-import time
-from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QLabel, QWidget
 
 CAMERA_FRAME_ID = 'left_hand_camera'
 CHILD_FRAME_ID = 'marker_3'
@@ -31,12 +35,14 @@ class FiducialMarkerSVDApp(QMainWindow):
         super(FiducialMarkerSVDApp, self).__init__()
 
         self.data = data
-        self.setWindowTitle('Z-Translation vs Time')
+        self.setWindowTitle('Range Error vs Time')
         self.setGeometry(100, 100, 800, 600)
 
         self.plot_widget = pg.PlotWidget()
-        self.plot_widget.setLabel('left', 'Z-Translation', units='m')
+        self.plot_widget.setLabel('left', 'Range-Error', units='m')
         self.plot_widget.setLabel('bottom', 'Time', units='s')
+        self.plot_widget.setYRange(0, 0.005)
+        # self.plot_widget.autoRange(padding = 0.5)
         self.curve = self.plot_widget.plot(pen='y')
 
         layout = QVBoxLayout()
@@ -44,6 +50,18 @@ class FiducialMarkerSVDApp(QMainWindow):
 
         self.z_label = QLabel()
         layout.addWidget(self.z_label)
+
+        self.z_moving_average_label = QLabel()
+        layout.addWidget(self.z_moving_average_label)
+
+        self.z_std_dev_label = QLabel()
+        layout.addWidget(self.z_std_dev_label)
+
+        self.ground_truth_z_input = QLineEdit()
+        self.ground_truth_z_input.setText("1.439")
+        self.ground_truth_z_input.setValidator(QDoubleValidator())
+        self.ground_truth_z_input.setPlaceholderText('Enter ground truth range')
+        layout.addWidget(self.ground_truth_z_input)
 
         central_widget = QWidget()
         central_widget.setLayout(layout)
@@ -61,8 +79,10 @@ class FiducialMarkerSVDApp(QMainWindow):
 
         if filtered_data:
             t, z = zip(*filtered_data)
-            self.curve.setData(t, z)
-            self.z_label.setText(f"Latest Z: {z[-1]:.4f}")
+            self.curve.setData(t, np.abs(z - np.double(self.ground_truth_z_input.text())))
+            self.z_label.setText(f"Latest Z: {z[-1]:.3f}")
+            self.z_moving_average_label.setText(f"Moving average of Z: {np.average(z):.3f}")
+            self.z_std_dev_label.setText(f"Standard deviation on Z window: {np.std(z):.3f}")
         else:
             self.curve.clear()
             self.z_label.setText("No Data")
