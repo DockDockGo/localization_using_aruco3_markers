@@ -41,7 +41,7 @@ def generate_launch_description():
     )
 
     reference_frame = DeclareLaunchArgument(
-        'reference_frame', default_value='base',
+        'reference_frame', default_value='left_hand_camera',
         description='Reference frame. '
         'Leave it empty and the pose will be published wrt param parent_name. '
     )

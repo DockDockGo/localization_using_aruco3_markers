@@ -49,6 +49,8 @@
 #include "tf2_ros/transform_listener.h"
 #include "tf2_ros/buffer.h"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.h"
+#include "tf2_ros/transform_broadcaster.h"
+
 
 using namespace std::chrono_literals;
 
@@ -83,6 +85,8 @@ private:
   cv::Mat inImage_;
   bool useCamInfo_;
   std_msgs::msg::UInt32MultiArray marker_list_msg_;
+
+  std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
 public:
   ArucoMarkerPublisher()
@@ -140,6 +144,10 @@ public:
     marker_msg_->header.frame_id = reference_frame_;
     RCLCPP_INFO(this->get_logger(), "Successfully setup the marker publisher!");
 
+    tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(shared_from_this());
+    RCLCPP_INFO(this->get_logger(), "Successfully setup the marker tf broadcaster!");
+
+
     return true;
   }
 
@@ -177,10 +185,15 @@ public:
     std::chrono::high_resolution_clock::time_point start_time = std::chrono::high_resolution_clock::now();
     // auto start_time = std::chrono::high_resolution_clock::now(); // Get the start time
 
-    bool publishMarkers = marker_pub_->get_subscription_count() > 0;
-    bool publishMarkersList = marker_list_pub_->get_subscription_count() > 0;
+    // bool publishMarkers = marker_pub_->get_subscription_count() > 0;
+    // bool publishMarkersList = marker_list_pub_->get_subscription_count() > 0;
+    // bool publishImage = image_pub_.getNumSubscribers() > 0;
+    // bool publishDebug = debug_pub_.getNumSubscribers() > 0;
+
+    bool publishMarkers = true;
+    bool publishMarkersList = true;
     bool publishImage = image_pub_.getNumSubscribers() > 0;
-    bool publishDebug = debug_pub_.getNumSubscribers() > 0;
+    bool publishDebug = false;
 
     if (!publishMarkers && !publishMarkersList && !publishImage && !publishDebug) {
       return;
@@ -230,6 +243,23 @@ public:
             transform = static_cast<tf2::Transform>(cameraToReference) * transform;
             tf2::toMsg(transform, marker_i.pose.pose);
             marker_i.header.frame_id = reference_frame_;
+
+            // Broadcast marker pose to tf
+            geometry_msgs::msg::TransformStamped marker_transform;
+            marker_transform.header.stamp = curr_stamp;
+            marker_transform.header.frame_id = reference_frame_;
+            marker_transform.child_frame_id = "marker_" + std::to_string(markers_.at(i).id);
+            marker_transform.transform.translation.x = marker_i.pose.pose.position.x;
+            marker_transform.transform.translation.y = marker_i.pose.pose.position.y;
+            marker_transform.transform.translation.z = marker_i.pose.pose.position.z;
+            marker_transform.transform.rotation.x = marker_i.pose.pose.orientation.x;
+            marker_transform.transform.rotation.y = marker_i.pose.pose.orientation.y;
+            marker_transform.transform.rotation.z = marker_i.pose.pose.orientation.z;
+            marker_transform.transform.rotation.w = marker_i.pose.pose.orientation.w;
+            tf_broadcaster_->sendTransform(marker_transform);
+
+            // RCLCPP_INFO(this->get_logger(), "Broadcasted tf!");
+
           }
         }
 
