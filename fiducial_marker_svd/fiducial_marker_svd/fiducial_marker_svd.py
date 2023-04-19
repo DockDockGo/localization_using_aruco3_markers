@@ -11,21 +11,27 @@ from PyQt5.QtGui import QDoubleValidator
 from rclpy.node import Node
 from tf2_msgs.msg import TFMessage
 
-CAMERA_FRAME_ID = 'left_hand_camera'
-CHILD_FRAME_ID = 'marker_3'
+CAMERA_FRAME_ID = "left_hand_camera"
+CHILD_FRAME_ID = "marker_0"
 
 
 class FiducialMarkerSVD(Node):
     def __init__(self):
-        super().__init__('fiducial_marker_svd_node')
-        self.subscription = self.create_subscription(TFMessage, '/tf', self.tf_callback, 10)
+        super().__init__("fiducial_marker_svd_node")
+        self.subscription = self.create_subscription(TFMessage, "/tf", self.tf_callback, 10)
         self.subscription  # prevent unused variable warning
         self.left_hand_camera_marker_0 = []
 
     def tf_callback(self, msg):
         for transform_stamped in msg.transforms:
-            if transform_stamped.header.frame_id == CAMERA_FRAME_ID and transform_stamped.child_frame_id == CHILD_FRAME_ID:
-                timestamp = transform_stamped.header.stamp.sec + transform_stamped.header.stamp.nanosec * 1e-9
+            if (
+                transform_stamped.header.frame_id == CAMERA_FRAME_ID
+                and transform_stamped.child_frame_id == CHILD_FRAME_ID
+            ):
+                timestamp = (
+                    transform_stamped.header.stamp.sec
+                    + transform_stamped.header.stamp.nanosec * 1e-9
+                )
                 z_translation = transform_stamped.transform.translation.z
                 self.left_hand_camera_marker_0.append((timestamp, z_translation))
 
@@ -35,15 +41,15 @@ class FiducialMarkerSVDApp(QMainWindow):
         super(FiducialMarkerSVDApp, self).__init__()
 
         self.data = data
-        self.setWindowTitle('Range Error vs Time')
+        self.setWindowTitle("Range Error vs Time")
         self.setGeometry(100, 100, 800, 600)
 
         self.plot_widget = pg.PlotWidget()
-        self.plot_widget.setLabel('left', 'Range-Error', units='m')
-        self.plot_widget.setLabel('bottom', 'Time', units='s')
+        self.plot_widget.setLabel("left", "Range-Error", units="m")
+        self.plot_widget.setLabel("bottom", "Time", units="s")
         self.plot_widget.setYRange(0, 0.005)
         # self.plot_widget.autoRange(padding = 0.5)
-        self.curve = self.plot_widget.plot(pen='y')
+        self.curve = self.plot_widget.plot(pen="y")
 
         layout = QVBoxLayout()
         layout.addWidget(self.plot_widget)
@@ -60,8 +66,16 @@ class FiducialMarkerSVDApp(QMainWindow):
         self.ground_truth_z_input = QLineEdit()
         self.ground_truth_z_input.setText("1.439")
         self.ground_truth_z_input.setValidator(QDoubleValidator())
-        self.ground_truth_z_input.setPlaceholderText('Enter ground truth range')
+        self.ground_truth_z_input.setPlaceholderText("Enter ground truth range")
         layout.addWidget(self.ground_truth_z_input)
+
+        self.z_sliding_window_size_input = QLineEdit()
+        self.z_sliding_window_size_input.setText("10")
+        self.z_sliding_window_size_input.setValidator(QDoubleValidator())
+        self.z_sliding_window_size_input.setPlaceholderText(
+            "Enter sliding window length in seconds."
+        )
+        layout.addWidget(self.z_sliding_window_size_input)
 
         central_widget = QWidget()
         central_widget.setLayout(layout)
@@ -75,7 +89,14 @@ class FiducialMarkerSVDApp(QMainWindow):
 
     def update_plot(self):
         current_time = time.time()
-        filtered_data = [(t, z) for t, z in self.data if current_time - t <= 10]
+        sliding_time_window_str = (
+            "10"
+            if not bool(self.z_sliding_window_size_input.text())
+            else self.z_sliding_window_size_input.text()
+        )
+        filtered_data = [
+            (t, z) for t, z in self.data if current_time - t <= np.double(sliding_time_window_str)
+        ]
 
         if filtered_data:
             t, z = zip(*filtered_data)
@@ -90,12 +111,15 @@ class FiducialMarkerSVDApp(QMainWindow):
     def quit(self):
         self.is_running = False
 
+
 def main(args=None):
     rclpy.init(args=args)
     fiducial_marker_svd_node = FiducialMarkerSVD()
 
     app = QApplication(sys.argv)
-    fiducial_marker_svd_app = FiducialMarkerSVDApp(fiducial_marker_svd_node.left_hand_camera_marker_0)
+    fiducial_marker_svd_app = FiducialMarkerSVDApp(
+        fiducial_marker_svd_node.left_hand_camera_marker_0
+    )
     fiducial_marker_svd_app.show()
 
     app.aboutToQuit.connect(fiducial_marker_svd_app.quit)
@@ -115,5 +139,5 @@ def main(args=None):
         rclpy.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
