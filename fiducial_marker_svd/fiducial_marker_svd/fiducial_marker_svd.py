@@ -8,12 +8,15 @@ import rclpy
 from geometry_msgs.msg import Quaternion
 from PyQt5.QtWidgets import QApplication, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QVBoxLayout, QWidget, QPushButton
 from PyQt5.QtGui import QDoubleValidator
+from PyQt5.QtCore import Qt
 
 from rclpy.node import Node
 from tf2_msgs.msg import TFMessage
 
 CAMERA_FRAME_ID = "left_hand_camera"
 CHILD_FRAME_ID = "marker_0"
+MAX_PERMISSIBLE_RANGE_ERROR_M = 0.03
+MAX_PERMISSIBLE_YAW_ERROR_DEGREES = 3
 
 GROUND_TRUTH_RANGE = [
     1.4,
@@ -83,7 +86,9 @@ class FiducialMarkerSVDApp(QMainWindow):
         super(FiducialMarkerSVDApp, self).__init__()
 
         self.data = data
-        self.setWindowTitle("Range Error vs Time")
+        self.saved_data = []
+
+        self.setWindowTitle("Marker Detection Demo")
         self.setGeometry(100, 100, 1600, 600)
 
         outer_layout = QVBoxLayout()
@@ -91,6 +96,9 @@ class FiducialMarkerSVDApp(QMainWindow):
 
         # First column
         column1 = QVBoxLayout()
+        column1_label = QLabel()
+        column1_label.setText("Live Range Error")
+        column1.addWidget(column1_label)
         self.z_error_plot_widget = pg.PlotWidget()
         self.z_error_plot_widget.setLabel("left", "Range-Error", units="m")
         self.z_error_plot_widget.setLabel("bottom", "Time", units="s")
@@ -102,6 +110,9 @@ class FiducialMarkerSVDApp(QMainWindow):
 
         # Second column
         column2 = QVBoxLayout()
+        column2_label = QLabel()
+        column2_label.setText("Live Yaw Error")
+        column2.addWidget(column2_label)
         self.yaw_error_plot_widget = pg.PlotWidget()
         self.yaw_error_plot_widget.setLabel("left", "Marker-Yaw-Error", units="degrees")
         self.yaw_error_plot_widget.setLabel("bottom", "Time", units="s")
@@ -126,7 +137,44 @@ class FiducialMarkerSVDApp(QMainWindow):
         outer_layout.addLayout(self.sliding_window_size_input_layout)
         layout.addLayout(column1)
         layout.addLayout(column2)
+
+        # Third column
+        column3 = QVBoxLayout()
+        column3_label = QLabel()
+        column3_label.setText("Validation of saved data points")
+        column3.addWidget(column3_label)
+        self.error_plot_widget = pg.PlotWidget()
+        self.error_plot_widget.setLabel("left", "Range-Error", units="m")
+        self.error_plot_widget.setLabel("bottom", "Yaw-Error", units="degrees")
+        # self.error_plot_widget.setYRange(0, 0.05)
+        # self.error_plot_widget.setXRange(0, 5)
+        self.error_curve = self.error_plot_widget.plot(pen="y")
+        column3.addWidget(self.error_plot_widget)
+
+        self.max_range_error_label = QLabel()
+        column3.addWidget(self.max_range_error_label)
+
+        self.max_yaw_error_label = QLabel()
+        column3.addWidget(self.max_yaw_error_label)
+
+        self.pass_fail_label = QLabel()
+        self.pass_fail_label.setAlignment(Qt.AlignCenter)
+        self.pass_fail_label.setMinimumHeight(50)
+        column3.addWidget(self.pass_fail_label)
+
+        layout.addLayout(column3)
+
         outer_layout.addLayout(layout)
+
+        save_button = QPushButton("Save Latest Data")
+        save_button.setStyleSheet("font-size: 18px; height: 50px;")
+        save_button.clicked.connect(self.save_latest_data)
+        outer_layout.addWidget(save_button)
+
+        reset_saved_data_button = QPushButton("Reset Saved Data")
+        reset_saved_data_button.setStyleSheet("font-size: 18px; height: 50px;")
+        reset_saved_data_button.clicked.connect(self.reset_saved_data)
+        outer_layout.addWidget(reset_saved_data_button)
 
         central_widget = QWidget()
         central_widget.setLayout(outer_layout)
@@ -210,6 +258,18 @@ class FiducialMarkerSVDApp(QMainWindow):
     def reset_ground_truth_yaw(self, value):
         self.ground_truth_yaw_input.setText(str(value))
 
+    def save_latest_data(self):
+        if self.data:
+            t, range, yaw = self.data[-1]
+            range_error = np.abs(range - np.double(self.ground_truth_z_input.text()))
+            yaw_error = np.abs(yaw - np.double(self.ground_truth_yaw_input.text()))
+            latest_data = t, range, range_error, yaw, yaw_error
+            self.saved_data.append(latest_data)
+            print(f"Saved data: {latest_data}")
+
+    def reset_saved_data(self):
+        self.saved_data = []
+
     def update_plot(self):
         current_time = time.time()
         sliding_time_window_str = (
@@ -239,6 +299,59 @@ class FiducialMarkerSVDApp(QMainWindow):
             self.z_label.setText("No Data")
             self.yaw_error_curve.clear()
             self.yaw_label.setText("No Data")
+        
+        if self.saved_data:
+            t, range, range_error, yaw, yaw_error = zip(*self.saved_data)
+            self.error_curve.setData(yaw_error, range_error, symbol='o', pen=None)
+
+            max_range_error = max(range_error)
+            max_yaw_error = max(yaw_error)
+
+            self.max_range_error_label.setText(f"Max range error: {max_range_error:.3f}")
+            self.max_yaw_error_label.setText(f"Max yaw error: {max_yaw_error:.3f}")
+
+            if max_range_error < MAX_PERMISSIBLE_RANGE_ERROR_M and max_yaw_error < MAX_PERMISSIBLE_YAW_ERROR_DEGREES:
+                self.pass_fail_label.setStyleSheet("background-color: green;")
+                self.pass_fail_label.setText("PASS")
+            else:
+                self.pass_fail_label.setStyleSheet("background-color: red;")
+                self.pass_fail_label.setText("FAIL")
+        else:
+            self.error_curve.clear()
+            self.max_range_error_label.setText("No Data")
+            self.max_yaw_error_label.setText("No Data")
+            self.pass_fail_label.clear()
+            self.pass_fail_label.setStyleSheet("")
+
+        if self.saved_data:
+            t, range, range_error, yaw, yaw_error = zip(*self.saved_data)
+
+            # Calculate colors based on range_error and yaw_error values
+            colors = [
+                pg.mkColor("g") if (re < 0.03 and ye < 3) else pg.mkColor("r")
+                for re, ye in zip(range_error, yaw_error)
+            ]
+
+            # Create a ScatterPlotItem with the updated colors
+            scatter_plot_item = pg.ScatterPlotItem(x=yaw_error, y=range_error, pen=colors)
+
+            # Update the scatter plot
+            self.error_plot_widget.clear()
+            self.error_plot_widget.addItem(scatter_plot_item)
+
+            # Update the maximum error labels
+            self.max_range_error_label.setText(f"Max Range Error: {max(range_error) * 1000:.3f} mm")
+            self.max_yaw_error_label.setText(f"Max Yaw Error: {max(yaw_error):.3f}°")
+
+            if max(range_error) < 0.03 and max(yaw_error) < 3:
+                self.pass_fail_label.setStyleSheet("background-color: green")
+                self.pass_fail_label.setText("PASS")
+            else:
+                self.pass_fail_label.setStyleSheet("background-color: red")
+                self.pass_fail_label.setText("FAIL")
+        else:
+            self.error_plot_widget.clear()
+
 
     def quit(self):
         self.is_running = False
