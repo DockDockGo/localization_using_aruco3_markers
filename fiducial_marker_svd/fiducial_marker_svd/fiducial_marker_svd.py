@@ -7,7 +7,6 @@ import rclpy
 from PyQt5.QtWidgets import QApplication, QLabel, QLineEdit, QMainWindow, QVBoxLayout, QWidget
 from PyQt5.QtGui import QDoubleValidator
 
-
 from rclpy.node import Node
 from tf2_msgs.msg import TFMessage
 
