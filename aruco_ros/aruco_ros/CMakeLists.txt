@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.8)
 project(aruco_ros)
 
+# add_compile_options(-g)
+
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra)
 endif()
@@ -9,7 +11,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON) #...is required...
 set(CMAKE_CXX_EXTENSIONS ON) #...with compiler extensions like gnu++11
 
 set(THIS_PACKAGE_INCLUDE_DEPENDS
-    OpenCV
+    # OpenCV
     cv_bridge
     geometry_msgs
     image_transport
@@ -23,6 +25,7 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
     sensor_msgs
     visualization_msgs
 )
+find_package(OpenCV 4.2.0 REQUIRED)
 find_package(ament_cmake REQUIRED)
 foreach(Dependency IN ITEMS ${THIS_PACKAGE_INCLUDE_DEPENDS})
   find_package(${Dependency} REQUIRED)

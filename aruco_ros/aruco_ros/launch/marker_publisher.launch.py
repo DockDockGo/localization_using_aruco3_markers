@@ -20,8 +20,9 @@ def launch_setup(context, *args, **kwargs):
         package='aruco_ros',
         executable='marker_publisher',
         parameters=[aruco_marker_publisher_params],
-        remappings=[('/camera_info', '/cameras/' + side + '_hand_camera/camera_info'),
-                    ('/image', '/cameras/' + side + '_hand_camera/image')],
+        # prefix=['xterm -e gdb -ex run --args'],
+        # remappings=[('/camera_info', '/camera/color/camera_info'),
+        #             ('/image', '/cameras/' + side + '_hand_camera/image')],
     )
 
     return [aruco_marker_publisher]

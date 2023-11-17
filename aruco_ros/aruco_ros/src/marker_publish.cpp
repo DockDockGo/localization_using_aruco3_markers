@@ -180,6 +180,7 @@ public:
 
   void image_callback(const sensor_msgs::msg::Image::ConstSharedPtr & msg)
   {
+    // RCLCPP_INFO(this->get_logger(), "---------------------------> Inside image callback function\n");
     // Profiling, added by Sid
     // Measure the start time
     std::chrono::high_resolution_clock::time_point start_time = std::chrono::high_resolution_clock::now();
@@ -193,6 +194,7 @@ public:
     bool publishMarkers = true;
     bool publishMarkersList = true;
     bool publishImage = image_pub_.getNumSubscribers() > 0;
+    // bool publishImage = true;
     bool publishDebug = false;
 
     if (!publishMarkers && !publishMarkersList && !publishImage && !publishDebug) {
@@ -204,12 +206,17 @@ public:
     try {
       cv_ptr = cv_bridge::toCvCopy(*msg.get(), sensor_msgs::image_encodings::RGB8);
       inImage_ = cv_ptr->image;
+      // RCLCPP_INFO(this->get_logger(), "image size");
+      // RCLCPP_INFO(this->get_logger(), "%d", inImage_.rows);
+      // RCLCPP_INFO(this->get_logger(), "%d", inImage_.cols);
 
       // clear out previous detection results
       markers_.clear();
 
       // ok, let's detect
+      // RCLCPP_INFO(this->get_logger(), "---------------------------> Before detect \n");
       mDetector_.detect(inImage_, markers_, camParam_, marker_size_, false);
+      // RCLCPP_INFO(this->get_logger(), "---------------------------> After detect \n");
 
       // marker array publish
       if (publishMarkers) {
@@ -241,6 +248,7 @@ public:
             aruco_msgs::msg::Marker & marker_i = marker_msg_->markers.at(i);
             tf2::Transform transform = aruco_ros::arucoMarker2Tf2(markers_[i]);
             transform = static_cast<tf2::Transform>(cameraToReference) * transform;
+            // This is where the detected pose is pushed into the marker_msg_
             tf2::toMsg(transform, marker_i.pose.pose);
             marker_i.header.frame_id = reference_frame_;
 
@@ -248,7 +256,10 @@ public:
             geometry_msgs::msg::TransformStamped marker_transform;
             marker_transform.header.stamp = curr_stamp;
             marker_transform.header.frame_id = reference_frame_;
-            marker_transform.child_frame_id = "marker_" + std::to_string(markers_.at(i).id);
+            // TODO(sid): Revert this name change
+            // marker_transform.child_frame_id = "marker_" + std::to_string(markers_.at(i).id);
+            // marker_transform.child_frame_id = "fiducial_marker";
+            marker_transform.child_frame_id = "fiducial_marker_" + std::to_string(markers_.at(i).id);
             marker_transform.transform.translation.x = marker_i.pose.pose.position.x;
             marker_transform.transform.translation.y = marker_i.pose.pose.position.y;
             marker_transform.transform.translation.z = marker_i.pose.pose.position.z;
