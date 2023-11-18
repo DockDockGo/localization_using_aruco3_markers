@@ -2,7 +2,7 @@
 
 ### Build realsense camera node:
 ```
-colcon build --packages-select realsense_camera
+colcon build --packages-select-regex realsense2_camera
 ```
 
 ### Build marker detection:
