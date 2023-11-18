@@ -2,12 +2,12 @@
 
 ### Build realsense camera node:
 ```
-ros2 build --packages-select realsense_camera
+colcon build --packages-select realsense_camera
 ```
 
 ### Build marker detection:
 ```
-ros2 build --packages-select aruco_ros fiducial_marker_fvd
+colcon build --packages-select aruco_ros fiducial_marker_fvd
 ```
 
 ------
