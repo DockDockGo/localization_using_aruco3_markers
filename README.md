@@ -7,7 +7,8 @@ colcon build --packages-select-regex realsense2_camera
 
 ### Build marker detection:
 ```
-colcon build --packages-select aruco_ros fiducial_marker_fvd
+colcon build --packages-select-regex aruco_ros 
+colcon build --packages-select-regex  fiducial
 ```
 
 ------
